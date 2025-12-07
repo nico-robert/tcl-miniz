@@ -145,7 +145,6 @@ namespace eval miniz {
 
         mz_zip_writer_finalize_archive $zip_archive
         mz_zip_writer_end $zip_archive
-
         cffi::memory free $zip_archive
 
         return {}
@@ -189,8 +188,9 @@ namespace eval miniz {
         }
 
         mz_zip_reader_end $zip_archive
-
         cffi::memory free $zip_archive
+
+        return {}
     }
 
     proc compress {data {level 6}} {
@@ -203,7 +203,6 @@ namespace eval miniz {
         set source_len [string length $data]
         set maxLenOut [mz_compressBound $source_len]
         set dest [cffi::memory allocate $maxLenOut ::dest]
-        set size [cffi::type size pointer]
         set dest_len $maxLenOut
 
         set result [mz_compress2 $dest dest_len $data $source_len $level]
@@ -228,7 +227,7 @@ namespace eval miniz {
         #
         # Returns uncompressed string
         set source_len [string length $data]
-        set max_size [expr {100 * $source_len}]
+        set max_size [expr {1000 * $source_len}]
         set dest [cffi::memory allocate $max_size ::dest]
 
         set dest_len $max_size
@@ -315,23 +314,23 @@ cffi::enum sequence mz_zip_error {
 }
 
 cffi::enum define mz_zip {
-    MZ_OK 0
-    MZ_STREAM_END 1
-    MZ_NEED_DICT 2
-    MZ_ERRNO -1
-    MZ_STREAM_ERROR -2
-    MZ_DATA_ERROR -3
-    MZ_MEM_ERROR -4
-    MZ_BUF_ERROR -5
+    MZ_OK            0
+    MZ_STREAM_END    1
+    MZ_NEED_DICT     2
+    MZ_ERRNO         -1
+    MZ_STREAM_ERROR  -2
+    MZ_DATA_ERROR    -3
+    MZ_MEM_ERROR     -4
+    MZ_BUF_ERROR     -5
     MZ_VERSION_ERROR -6
-    MZ_PARAM_ERROR -10000
+    MZ_PARAM_ERROR   -10000
 }
 
 MINIZ functions {
     mz_compress int {
-        pDest  uchar[pDest_len]
+        pDest {pointer.dest unsafe}
         pDest_len {mz_ulong inout}
-        pDest  uchar[source_len]
+        pSource string
         source_len mz_ulong
     }
 
