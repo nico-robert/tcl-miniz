@@ -14,6 +14,8 @@ Tcl bindings for [**miniz**](https://github.com/richgel999/miniz)
 
 ## Example :
 ```tcl
+package require miniz
+
 # Create a zip archive
 # level compression : MZ_NO_COMPRESSION, MZ_BEST_SPEED, MZ_BEST_COMPRESSION, MZ_UBER_COMPRESSION, MZ_DEFAULT_LEVEL, MZ_DEFAULT_COMPRESSION
 
