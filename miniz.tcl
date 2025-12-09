@@ -2,7 +2,10 @@
 # Distributed under MIT license. Please see LICENSE for details.
 # tcl-miniz - Tcl bindings for miniz (https://github.com/richgel999/miniz).
 
-# 06-Dec-2025 : v0.1 Initial release
+# 06-Dec-2025 : v0.1 
+#               Initial release
+# 09-Dec-2025 : v0.12 
+#               Update package with new procedures (addInPlace, getZipStats, unzipInMemory)
 
 package require Tcl  8.6-
 package require cffi 2.0
@@ -10,7 +13,7 @@ package require cffi 2.0
 namespace eval miniz {
 
     variable libminizMinVersion "11.0.2"
-    variable version 0.1
+    variable version 0.12
     variable packageDirectory [file dirname [file normalize [info script]]]
     variable supportedMinizVersions [list 3.1.0 310]
     variable allocSize 128
