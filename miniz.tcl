@@ -119,7 +119,7 @@ namespace eval miniz {
         throw MINIZ_ERROR "miniz($enum): $msg."
     }
 
-    proc zip {zip_fullpath file_list {compression "MZ_DEFAULT_COMPRESSION"}} {
+    proc zip {zip_fullpath file_list {compression "MZ_DEFAULT_COMPRESSION"} {comment ""}} {
         # Creates a zip archive
         #
         # zip_fullpath - full path to zip archive
@@ -138,8 +138,8 @@ namespace eval miniz {
             mz_zip_writer_add_file $zip_archive \
                 [file tail $file] \
                 $file \
-                NULL \
-                0 \
+                $comment \
+                [string length $comment] \
                 $compression
         }
 
@@ -191,6 +191,82 @@ namespace eval miniz {
         cffi::memory free $zip_archive
 
         return {}
+    }
+
+    proc addInPlace {zip_fullpath file_name data {compression "MZ_DEFAULT_COMPRESSION"} {comment ""}} {
+        # Adds data in place to a zip archive in memory.
+        #
+        # zip_fullpath - full path to zip archive
+        # file_name    - file name
+        # data         - data to add to archive
+        # compression  - compression level
+        # comment      - file comment
+        #
+        # Returns nothing
+
+        mz_zip_add_mem_to_archive_file_in_place $zip_fullpath \
+            $file_name \
+            $data \
+            [expr {[string length $data] + 1}] \
+            $comment \
+            [string length $comment] \
+            $compression
+
+        return {}
+    }
+
+    proc unzipInMemory {zip_fullpath callback_command} {
+        # Unzips a zip archive in memory.
+        #
+        # zip_fullpath     - full path to zip archive
+        # callback_command - callback command
+        #
+        # Returns nothing
+        variable allocSize
+
+        set cb [cffi::callback new ::mz_file_write_func $callback_command 0]
+
+        set zip_archive [cffi::memory allocate $allocSize ::mza]
+        cffi::memory fill $zip_archive 0 $allocSize
+
+        mz_zip_reader_init_file $zip_archive $zip_fullpath 0
+        set num_files [mz_zip_reader_get_num_files $zip_archive]
+        
+        for {set i 0} {$i < $num_files} {incr i} {
+            mz_zip_reader_extract_to_callback $zip_archive $i $cb NULL 0
+        }
+
+        mz_zip_reader_end $zip_archive
+        cffi::callback free $cb
+        cffi::memory free $zip_archive
+
+        return {}
+    }
+
+    proc getZipStats {zip_fullpath} {
+        # Gets zip archive stats
+        #
+        # zip_fullpath - full path to zip archive
+        #
+        # Returns dictionary of stats.
+        variable allocSize
+
+        set zip_archive [cffi::memory allocate $allocSize ::mza]
+        cffi::memory fill $zip_archive 0 $allocSize
+
+        mz_zip_reader_init_file $zip_archive $zip_fullpath 0
+        set num_files [mz_zip_reader_get_num_files $zip_archive]
+        set statFiles [dict create]
+
+        for {set i 0} {$i < $num_files} {incr i} {
+            mz_zip_reader_file_stat $zip_archive $i stat
+            dict set statFiles $i $stat
+        }
+
+        mz_zip_reader_end $zip_archive
+        cffi::memory free $zip_archive
+
+        return $statFiles
     }
 
     proc compress {data {level 6}} {
@@ -326,6 +402,40 @@ cffi::enum define mz_zip {
     MZ_PARAM_ERROR   -10000
 }
 
+cffi::Struct create mz_dummy_time_t {
+    m_dummy1 mz_uint32
+    m_dummy2 mz_uint32
+}
+
+cffi::Struct create mz_zip_archive_file_stat {
+    m_file_index mz_uint32
+    m_central_dir_ofs mz_uint64
+    m_version_made_by mz_uint16
+    m_version_needed mz_uint16
+    m_bit_flag mz_uint16
+    m_method mz_uint16
+    m_crc32 mz_uint32
+    m_comp_size mz_uint64
+    m_uncomp_size mz_uint64
+    m_internal_attr mz_uint16
+    m_external_attr mz_uint32
+    m_local_header_ofs mz_uint64
+    m_comment_size mz_uint32
+    m_is_directory int
+    m_is_encrypted int
+    m_is_supported int
+    m_filename chars[512]
+    m_comment chars[512]
+    m_time struct.mz_dummy_time_t
+}
+
+cffi::prototype function mz_file_write_func size_t {
+    pOpaque  {pointer unsafe}
+    file_ofs mz_uint64
+    pBuf     {pointer unsafe}
+    n        size_t
+}
+
 MINIZ functions {
     mz_compress int {
         pDest {pointer.dest unsafe}
@@ -344,7 +454,7 @@ MINIZ functions {
         pZip {mza unsafe}
         pArchive_name string
         pSrc_filename string
-        pComment {pointer nullok}
+        pComment {string nullifempty}
         comment_size mz_uint16
         level_and_flags {mz_uint {enum levelFlags}}
     }
@@ -419,6 +529,30 @@ MINIZ functions {
         pDest_len {mz_ulong inout}
         pSource binary
         source_len mz_ulong
+    }
+
+    mz_zip_add_mem_to_archive_file_in_place mz_bool {
+        pZip_filename string
+        pArchive_name string
+        pBuf {chars[buf_size]}
+        buf_size mz_ulong
+        pComment {string nullifempty}
+        comment_size mz_uint16
+        level_and_flags {mz_uint {enum levelFlags}}
+    }
+
+    mz_zip_reader_extract_to_callback mz_bool {
+        pZip {mza unsafe}
+        file_index mz_uint
+        pCallback pointer.mz_file_write_func
+        pOpaque {pointer nullok}
+        flags mz_uint
+    }
+
+    mz_zip_reader_file_stat mz_bool {
+        pZip {mza unsafe}
+        file_index mz_uint
+        pStat {struct.mz_zip_archive_file_stat out}
     }
 
 }
